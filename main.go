@@ -5,7 +5,11 @@ import (
 	"strconv"
 
 	"github.com/labstack/echo/v4"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 )
+
+var DB *gorm.DB
 
 type News struct {
 	Id int 			`json:"id"`
@@ -19,17 +23,43 @@ type BaseResponse struct {
 }
 
 func main() {
+	initDB()
 	e := echo.New()
 	e.GET("/news", NewsController)
 	e.GET("/news/:id", DetailNewsController)
-	e.POST("/news", AddNewsController)
+	// e.POST("/news", AddNewsController)
 	e.Start(":8000")
+}
+
+func initDB(){
+	dsn := "root:123ABC4d.@tcp(127.0.0.1:3306)/prakerja5?charset=utf8mb4&parseTime=True&loc=Local"
+	var err error
+	DB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	if err != nil {
+		panic("Database error")
+	}
+	migration()
+}
+
+func migration(){
+	DB.AutoMigrate(&News{})
 }
 
 
 func AddNewsController(c echo.Context) error {
 	var news News
 	c.Bind(&news)
+
+	// validsi
+
+	result := DB.Create(&news)
+
+	if result.Error != nil {
+		return c.JSON(http.StatusInternalServerError, BaseResponse{
+			Message: "Error",
+			Data: nil,
+		})
+	}
 
 	return c.JSON(http.StatusOK, BaseResponse{
 		Message: "Success",
@@ -50,12 +80,17 @@ func DetailNewsController(c echo.Context) error {
 
 
 func NewsController(c echo.Context) error {
-	var negara = c.QueryParam("negara")
-	var sort = c.QueryParam("sort")
-
 	var data []News
-	data = append(data, News{1, negara, "B"})
-	data = append(data, News{2, sort, "C"})
+
+	result := DB.Find(&data)
+
+	if result.Error != nil {
+		return c.JSON(http.StatusInternalServerError, BaseResponse{
+			Message: "Error",
+			Data: nil,
+		})
+	}
+
 	return c.JSON(http.StatusOK, BaseResponse{
 		Message: "Success",
 		Data: data,
